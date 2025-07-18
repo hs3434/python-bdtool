@@ -6,6 +6,7 @@ from snakemake.workflow import Workflow
 import yaml
 import inspect
 import ast
+import os
 
 
 def get_object_location(obj):
@@ -66,13 +67,13 @@ class BaseRule:
             self.pre_rule.add(obj)
 
     def pre_rules(self) -> list:
-        all_rules = []
+        all_rules = set()
         for pre in self.pre_rule:
             if isinstance(pre, RuleSet):
-                all_rules += pre.rules()
+                all_rules.add(pre.target_rule())
             elif isinstance(pre, MyRule):
-                all_rules.append(pre)
-            all_rules += pre.pre_rules()
+                all_rules.add(pre)
+            all_rules.union(pre.pre_rules())
         return all_rules
 
     def add_out_prefix2(self, file):
@@ -124,17 +125,28 @@ class MyRule(BaseRule):
         self.lineno = None  # get_object_location(self)
 
     def shellcmd(self) -> str:
+        cmd = ""
         if isinstance(self.args, list):
             args = " ".join([f"'{str(v)}'" for v in self.args])
         else:
             args = self.args
-        if self.script_path is None:
-            script = self.script
-        else:
-            script = Path(self.script_path, self.script)
-        if self.command != "":
-            script = f"{self.command} {str(script)}"
-        return " ".join([str(script), args])
+        if args:
+            cmd = args
+        if self.script:
+            if self.script_path is None:
+                script = self.script
+            else:
+                script = Path(self.script_path, self.script)
+            if cmd:
+                cmd = f"{script} {cmd}"
+            else:
+                cmd = script
+        if self.command:
+            if cmd:
+                cmd = f"{self.command} {cmd}"
+            else:
+                cmd = script
+        return cmd
 
     def func(self):
         def func(input,
@@ -172,7 +184,7 @@ class MyRule(BaseRule):
         elif isinstance(_input, list):
             return [str(MyRule.try_call(v)) for v in _input]
         else:
-            return str(MyRule.try_call(_input))
+            return MyRule.try_call(_input)
 
     def kwparams(self):
         return {k: str(MyRule.try_call(v)) for k, v in self._params.items()}
@@ -227,8 +239,9 @@ class RuleSet(BaseRule):
     def __init__(self, config):
         super().__init__()
         if not isinstance(config, dict):
-            config = yaml.load(open(config), Loader=yaml.FullLoader)
-        self.config = config
+            self.config = yaml.load(open(config), Loader=yaml.FullLoader)
+        else:
+            self.config = config
         self.name: str = type(self).__name__
         self.out_prefix: Path | str = ""
         self.script_path: Path | str = " "
@@ -237,24 +250,47 @@ class RuleSet(BaseRule):
         self.key = None
         self.key_sets: dict[MyRule | RuleSet] = {}
         self.confirm_file = self.out_prefix_call("confirm.yaml")
+        self._target_rule = None
 
     def all_out(self):
         all_files = []
-        for rule in self.rules():
-            all_files += rule.all_out()
+        for rule in self.rule_sets:
+            if isinstance(rule, MyRule):
+                all_files += rule.all_out()
+            elif isinstance(rule, RuleSet):
+                all_files += rule.target_rule().all_out()
         return all_files
 
-    def rules(self) -> list[MyRule]:
+    def all_rules(self) -> list[MyRule]:
         all_rules = []
         for rule in self.rule_sets:
             if isinstance(rule, MyRule):
                 all_rules.append(rule)
             elif isinstance(rule, RuleSet):
-                all_rules += rule.rules()
+                all_rules += rule.all_rules()
+        all_rules.append(self.target_rule())
         return all_rules
 
+    def target_rule(self):
+        if self._target_rule is None:
+            target_rule = MyRule()
+            if self.key is not None:
+                name = self.key + "_target"
+            else:
+                name = str(self.out_prefix).replace(os.path.sep, "_")
+                name += "_target"
+            target_rule.name = name
+            target_rule._input = self.all_out
+            target_rule._output = [name + ".done"]
+            target_rule.command = "bdtool-touch {output}"
+            target_rule.out_prefix = "logs"
+            self._target_rule = target_rule
+        else:
+            target_rule = self._target_rule
+        return target_rule
+
     def bound_workflow(self, workflow: Workflow):
-        for r in self.rules():
+        for r in self.all_rules():
             ruleinfo = RuleInfo(r.func())
             ruleinfo.shellcmd = r.shellcmd()
             ruleinfo.message = r.message()
@@ -265,10 +301,26 @@ class RuleSet(BaseRule):
                 r.benchmark(), {}, workflow.modifier.path_modifier)
             # or ruleinfo = workflow.benchmark(r.benchmark())(ruleinfo)
             ruleinfo.params = ([], r.kwparams())
-            ruleinfo.output = InOutput(
-                [], r.output(), workflow.modifier.path_modifier)
-            ruleinfo.input = InOutput(
-                [], r.input(), workflow.modifier.path_modifier)
+            output = r.output()
+            if isinstance(output, dict):
+                ruleinfo.output = InOutput(
+                    [], output, workflow.modifier.path_modifier)
+            elif isinstance(output, list):
+                ruleinfo.output = InOutput(
+                    output, {}, workflow.modifier.path_modifier)
+            else:
+                ruleinfo.output = InOutput(
+                    [output], {}, workflow.modifier.path_modifier)
+            input = r.input()
+            if isinstance(input, dict):
+                ruleinfo.input = InOutput(
+                    [], input, workflow.modifier.path_modifier)
+            elif isinstance(input, list):
+                ruleinfo.input = InOutput(
+                    input, {}, workflow.modifier.path_modifier)
+            else:
+                ruleinfo.input = InOutput(
+                    [input], {}, workflow.modifier.path_modifier)
             workflow.rule(name=r.name, lineno=r.lineno,
                           snakefile=r.snakefile)(ruleinfo)
 

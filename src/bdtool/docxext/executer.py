@@ -24,7 +24,7 @@ class Executer(ClassTool):
     def __init__(self):
         self.tasks = []
         self.nodes = []
-        self.sub_parts = [Executer]
+        self.sub_parts: list[Executer] = []
 
     def execute(self, doc: Document):
         for task in self.get_tasks():
@@ -46,7 +46,7 @@ class Executer(ClassTool):
     def get_tasks(self):
         tasks = self.tasks.copy()
         for sub_part in self.sub_parts:
-            tasks.append(sub_part.get_tasks())
+            tasks.extend(sub_part.get_tasks())
         return tasks
     
     def sub_part(self):
