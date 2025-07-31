@@ -145,7 +145,7 @@ class MyRule(BaseRule):
             if cmd:
                 cmd = f"{self.command} {cmd}"
             else:
-                cmd = script
+                cmd = self.command
         return cmd
 
     def func(self):
@@ -283,7 +283,7 @@ class RuleSet(BaseRule):
             target_rule._input = self.all_out
             target_rule._output = [name + ".done"]
             target_rule.command = "bdtool-touch {output}"
-            target_rule.out_prefix = "logs"
+            target_rule.out_prefix = self.out_prefix
             self._target_rule = target_rule
         else:
             target_rule = self._target_rule

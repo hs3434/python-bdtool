@@ -32,9 +32,9 @@ packages = ["src/bdtool"]
 artifacts = ["src/bdtool/*"]
 
 [project.urls]
-Documentation = "https://github.com/husheng/python-bdtool#readme"
-Issues = "https://github.com/husheng/python-bdtool/issues"
-Source = "https://github.com/husheng/python-bdtool"
+Documentation = "https://github.com/hs3434/python-bdtool#readme"
+Issues = "https://github.com/hs3434/python-bdtool/issues"
+Source = "https://github.com/hs3434/python-bdtool"
 
 [tool.hatch.version]
 path = "src/bdtool/__about__.py"
