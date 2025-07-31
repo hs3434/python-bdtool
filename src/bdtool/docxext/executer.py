@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from docx.shared import RGBColor
+from bdtool.tool import common_color_rgb
 if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, CharacterStyle
     from docx.document import Document
@@ -35,7 +37,13 @@ class Executer(ClassTool):
             elif task["type"] == "run":
                 style = task.get("style", None)
                 text = task.get("text", "")
-                obj.add_run(text, style=style)
+                run = obj.add_run(text, style=style)
+                if task.get("bold", None) is not None:
+                    run.bold = task["bold"]
+                if task.get("italic", None) is not None:
+                    run.italic = task["italic"]
+                if task.get("color", None) is not None:
+                    run.font.color.rgb = RGBColor(*common_color_rgb(task["color"]))
             elif task["type"] == "picture":
                 style = task.get("style", None)
                 path = task.get("path", "")
@@ -54,11 +62,15 @@ class Executer(ClassTool):
         self.sub_parts.append(part)
         return part
 
-    def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None):
+    def add_paragraph(self, text: str = "", style: str | ParagraphStyle | None = None, 
+                      color: str | None = None, bold: bool | None = None, italic: bool | None = None):
         self.tasks.append({
             "type": "paragraph",
             "text": text,
-            "style": style
+            "style": style,
+            "color": color,
+            "bold": bold,
+            "italic": italic
         })
     
     def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None):
