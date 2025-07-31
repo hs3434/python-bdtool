@@ -73,9 +73,13 @@ class Executer(ClassTool):
             "italic": italic
         })
     
-    def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None):
+    def add_run(self, text: str | None = None, style: str | CharacterStyle | None = None,
+                color: str | None = None, bold: bool | None = None, italic: bool | None = None):
         self.tasks.append({
             "type": "run",
             "text": text,
-            "style": style
+            "style": style,
+            "color": color,
+            "bold": bold,
+            "italic": italic
         })
