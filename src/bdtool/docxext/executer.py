@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from docx.shared import RGBColor
 from bdtool.tool import common_color_rgb
+from bdtool.docxext.math import add_math, parse_math
 if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, CharacterStyle
     from docx.document import Document
@@ -48,6 +49,11 @@ class Executer(ClassTool):
                 style = task.get("style", None)
                 path = task.get("path", "")
                 obj = doc.add_picture(path, style=style)
+            elif task["type"] == "math":
+                style = task.get("style", None)
+                text = task.get("text", "")
+                obj = doc.add_paragraph(style=style)
+                add_math(obj._element, text)
             else:
                 raise NotImplementedError("no type named {}".format(task["type"]))
 

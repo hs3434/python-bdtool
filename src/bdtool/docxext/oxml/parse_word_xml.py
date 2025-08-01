@@ -48,4 +48,3 @@ def parse_word_xml(xml: str) -> BaseOxmlElement:
         return children[0]
     else:
         return root
-    
