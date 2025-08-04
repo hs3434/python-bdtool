@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from docx.oxml.text.paragraph import CT_P
 from bdtool.docxext.oxml.math import OxmlElement, CT_oMath, CT_mBlock
+from lxml import etree
 import re
 
 def add_math(ct_p: CT_P, latex: str = None) -> CT_oMath:
     if ct_p.text:
         ct_math = OxmlElement("m:oMath")
+        ct_p.append(ct_math)
     else:
         ct_math = OxmlElement("m:oMathPara")
+        ct_p.append(ct_math)
         ct_math = ct_math.add_m()
-    ct_p.append(ct_math)
     if latex:
         parse_math(ct_math, latex)
     return ct_math
@@ -27,13 +29,10 @@ def parse_math(ct_math: CT_mBlock, latex: str) -> CT_oMath:
     )"""
     pattern = re.compile(pattern, re.IGNORECASE | re.VERBOSE)
     obj = ct_math
-    print(obj)
-    stack = [(obj, "block")]
-    while True:
-        obj, obj_type = stack.pop()
+    stack = [(obj, {"op": 0})]
+    while stack:
+        obj, status = stack.pop()
         match = pattern.search(latex)
-        print(stack)
-        print(match)
         if match is None:
             obj.add_r(latex)
             break
@@ -42,26 +41,59 @@ def parse_math(ct_math: CT_mBlock, latex: str) -> CT_oMath:
             span=match.span()
             text = latex[:span[0]]
             if text:
-                if text[0] == ' ' and obj_type == "function":
-                    obj, obj_type = stack.pop()
                 obj.add_r(text)
-            stack.append(obj)
+            stack.append((obj, status))
             if kind == "endblock":
                 stack.pop()
+                obj, status = stack.pop()
+                op = status.get("op", 0)
+                if op:
+                    stack.append((obj, status))
             elif kind == 'function':
                 func = match.group(kind)
-                new_obj = obj.add_nary(char=latex_to_symbol.get(func, func))
-                stack.append(new_obj)
+                if func == "ssub":
+                    new_obj = obj._add_ssub()
+                    stack.append((new_obj, {"op": 1}))
+                elif func == "ssup":
+                    new_obj = obj._add_ssup()
+                    stack.append((new_obj, {"op": 1}))
+                elif func == "ssubsup":
+                    new_obj = obj._add_ssubsup()
+                    stack.append((new_obj, {"op": 1}))
+                else:
+                    new_obj = obj.add_nary(char=latex_to_symbol.get(func, func))
+                    new_obj.set_supHide("1")
+                    new_obj.set_subHide("1")
+                    stack.append((new_obj, {"op": 1}))
             elif kind == 'subscript':
+                if hasattr(obj, 'set_subHide'):
+                    obj.set_subHide("0")
                 new_obj = obj.get_or_add_sub()
-                stack.append(new_obj)
+                stack.append((new_obj, {"op": 0}))
             elif kind == 'superscript':
+                if hasattr(obj, 'set_supHide'):
+                    obj.set_supHide("0")
                 new_obj = obj.get_or_add_sup()
-                stack.append(new_obj)
+                stack.append((new_obj, {"op": 0}))
             elif kind == 'block':
-                new_obj = obj._add_e()
-                stack.append(new_obj)
+                if text:
+                    new_obj = obj._add_e()
+                    stack.append((new_obj, {"op": 0}))
+                else:
+                    op = status.get("op", 0)
+                    if op:
+                        status["op"] = op - 1
+                        new_obj = obj._add_e()
+                        stack.append((new_obj, {"op": 0}))
+                
             latex = latex[span[1]:]
+    xml_str = etree.tostring(
+        ct_math,
+        encoding='unicode',
+        pretty_print=True,
+        xml_declaration=False  # 不包含XML声明头
+    )
+    print(xml_str)
     return ct_math
 
 

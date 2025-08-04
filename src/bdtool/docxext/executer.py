@@ -89,3 +89,10 @@ class Executer(ClassTool):
             "bold": bold,
             "italic": italic
         })
+
+    def add_math(self, latex: str, style: str | ParagraphStyle | None = None):
+        self.tasks.append({
+            "type": "math",
+            "text": latex,
+            "style": style
+        })

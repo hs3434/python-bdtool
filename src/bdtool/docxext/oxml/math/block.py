@@ -11,8 +11,7 @@ if TYPE_CHECKING:
     from bdtool.docxext.oxml.math.run import CT_mR
     from bdtool.docxext.oxml.math.nary import CT_mNary
     from bdtool.docxext.oxml.math.share import CT_ctrlPr
-    from bdtool.docxext.oxml.math.sub import CT_mSub
-    from bdtool.docxext.oxml.math.sup import CT_mSup
+    from bdtool.docxext.oxml.math.subsup import CT_mSub, CT_mSup, CT_msSub, CT_msSubSup, CT_msSup
 
 class CT_mBlock(BaseOxmlElement):
     """`<m:e>` element, containing the properties and text for a math element block."""
@@ -23,11 +22,17 @@ class CT_mBlock(BaseOxmlElement):
     get_or_add_ctrlPr: Callable[[], CT_ctrlPr]
     get_or_add_sub: Callable[[], CT_mSub]
     get_or_add_sup: Callable[[], CT_mSup]
+    _add_ssub: Callable[[], CT_msSub]
+    _add_ssup: Callable[[], CT_msSup]
+    _add_ssubsup: Callable[[], CT_msSubSup]
     _add_e: Callable[[], CT_mBlock]
     
     ctrlPr: CT_ctrlPr = ZeroOrOne("m:ctrlPr")
     sub: CT_mSub = ZeroOrOne("m:sub")
     sup: CT_mSup = ZeroOrOne("m:sup")
+    ssub: CT_msSub = ZeroOrMore("m:sSub")
+    ssup: CT_msSup = ZeroOrMore("m:sSup")
+    ssubsup: CT_msSubSup = ZeroOrMore("m:sSubSup")
     r: CT_mR = ZeroOrMore("m:r")
     nary: CT_mNary = ZeroOrMore("m:nary")
     e: CT_mBlock = ZeroOrMore("m:e")
@@ -42,8 +47,8 @@ class CT_mBlock(BaseOxmlElement):
 
     def add_nary(self, char: str) -> CT_mNary:
         """Return a newly added `<m:nary>` element containing `char`."""
-        nary = self._add_nary()
-        nary.add_chr(char)
+        nary: CT_mNary = self._add_nary()
+        nary.add_naryPr(char)
         return nary
     
     def add_e_before(self) -> CT_mBlock:
