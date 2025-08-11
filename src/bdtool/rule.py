@@ -7,7 +7,7 @@ import yaml
 import inspect
 import ast
 import os
-
+import re
 
 def get_object_location(obj):
     """获取对象在源代码中的位置信息"""
@@ -60,6 +60,20 @@ class BaseRule:
         self.pre_rule = set()
         self.out_prefix: Path | str = ""
 
+    def pre_init_subclass(self, cls, *args, **kwargs):
+        pass
+    
+    def post_init_subclass(self, cls, *args, **kwargs):
+        pass
+        
+    def __init_subclass__(cls, *args, **kwargs):
+        original_init = cls.__init__ 
+        def new_init(self, *args, **kwargs):
+            super(cls, self).pre_init_subclass(cls, *args, **kwargs)
+            original_init (self, *args, **kwargs)
+            super(cls, self).post_init_subclass(cls, *args, **kwargs)
+        cls.__init__ = new_init
+        
     def add_pre(self, obj):
         if isinstance(obj, set):
             self.pre_rule = self.pre_rule.union(obj)
@@ -89,7 +103,7 @@ class BaseRule:
     @classmethod
     def try_call(self, obj):
         if callable(obj):
-            return obj()
+            return BaseRule.try_call(obj())
         else:
             return obj
 
@@ -103,6 +117,12 @@ class BaseRule:
             return Path(prefix, files)
 
     @classmethod
+    def dict_call(self, dic: dict, key):
+        def fun():
+            return dic[key]
+        return BaseRule.create_call(fun)
+        
+    @classmethod
     def create_call(self, func, *args, **kwarg):
         def fun():
             return func(*args, **kwarg)
@@ -113,6 +133,10 @@ class MyRule(BaseRule):
     def __init__(self):
         super().__init__()
         self.name: str = type(self).__name__
+        self._input_key = set()
+        self._output_key = set()
+        self._params_key = set()
+        self._export: dict = {}
         self._input: dict = {}
         self._output: dict = {}
         self._params: dict = {}
@@ -124,6 +148,54 @@ class MyRule(BaseRule):
         self.snakefile = None  # __file__
         self.lineno = None  # get_object_location(self)
 
+    def pre_init_subclass(self, cls, *args, **kwargs):
+        super(cls, self).__init__()
+    
+    def post_init_subclass(self, cls, *args, **kwargs):
+        self.add_args()
+        self.load_all(kwargs)
+        
+    def load_all(self, params_dict: dict, update=False):
+        for key in params_dict.keys():
+            self.load_one(params_dict, key, update=update)
+    
+    def load_one(self, params_dict: dict, key, update=True):
+        if key in self._input_key:
+            if not update and key in self._input: return
+            value = self.dict_call(params_dict, key)
+            self._input.update({key: value})
+        elif key in self._output_key:
+            if not update and key in self._output: return
+            self._output.update({key: params_dict[key]})
+            self._export.update({key: self.out_prefix_call(params_dict[key])})
+        elif key in self._params_key:
+            if not update and key in self._params: return
+            value = self.dict_call(params_dict, key)
+            self._params.update({key: value})
+
+    def add_args(self):
+        if isinstance(self.args, list):
+            parse = [self.parse_args(arg) for arg in self.args if isinstance(arg, str)]
+            for v in parse:
+                if v is not None:
+                    if v[0] == "input":
+                        self._input_key.add(v[1])
+                    elif v[0] == "output":
+                        self._output_key.add(v[1])
+                    elif v[0] == "params":
+                        self._params_key.add(v[1])
+    
+    @classmethod      
+    def parse_args(self, ss: str):
+        pattern = r"\{(\w+)\.(\w+)\}"
+        match = re.match(pattern, ss)
+        if match:
+            part1 = match.group(1)
+            part2 = match.group(2)
+            return part1, part2
+        else:
+            return None
+        
     def shellcmd(self) -> str:
         cmd = ""
         if isinstance(self.args, list):
@@ -251,6 +323,24 @@ class RuleSet(BaseRule):
         self.key_sets: dict[MyRule | RuleSet] = {}
         self.confirm_file = self.out_prefix_call("confirm.yaml")
         self._target_rule = None
+        self.input_map = {}
+        self._export = {}
+
+    def pre_init_subclass(self, cls, config, *args, **kwargs):
+        pass
+    
+    def post_init_subclass(self, cls, *args, **kwargs):
+        self.load_all(kwargs)
+        
+    def load_all(self, params_dict: dict, update=False):
+        for key in params_dict.keys():
+            self.load_one(params_dict, key, update=update)
+    
+    def load_one(self, params_dict: dict, key: str, update=True):
+        for rule_index in self.input_map:
+            if key in self.input_map[rule_index]:
+                rule = self.rule_sets[rule_index]
+                rule.load_one(params_dict, key, update=update)
 
     def all_out(self):
         all_files = []
@@ -355,10 +445,14 @@ class RuleSet(BaseRule):
                 elif isinstance(rule, RuleSet):
                     rule.ext_rule_name(suffix, recurse=True)
 
-    def append(self, obj):
+    def append(self, obj, input_key: set=None):
         for pre in obj.pre_rule:
             if pre not in self.rule_sets:
                 raise ValueError(f"{str(obj)} need pre-rule {str(pre)}")
         if isinstance(obj, RuleSet) and obj.key is not None:
             self.key_sets.update({obj.key: obj})
+        index = len(self.rule_sets)
+        if input_key is not None:
+            self.input_map.update({index: input_key})
         self.rule_sets.append(obj)
+        return index
