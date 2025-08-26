@@ -93,7 +93,6 @@ def parse_math(ct_math: CT_mBlock, latex: str) -> CT_oMath:
         pretty_print=True,
         xml_declaration=False  # 不包含XML声明头
     )
-    print(xml_str)
     return ct_math
 
 

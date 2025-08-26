@@ -59,6 +59,7 @@ class BaseRule:
     def __init__(self):
         self.pre_rule = set()
         self.out_prefix: Path | str = ""
+        self.report_key: str = ""
 
     def pre_init_subclass(self, cls, *args, **kwargs):
         pass
@@ -331,6 +332,7 @@ class RuleSet(BaseRule):
     
     def post_init_subclass(self, cls, *args, **kwargs):
         self.load_all(kwargs)
+        self.report_key = self.key
         
     def load_all(self, params_dict: dict, update=False):
         for key in params_dict.keys():
@@ -372,7 +374,7 @@ class RuleSet(BaseRule):
             target_rule.name = name
             target_rule._input = self.all_out
             target_rule._output = [name + ".done"]
-            target_rule.command = "bdtool-touch {output}"
+            target_rule.command = "bdtool touch {output}"
             target_rule.out_prefix = self.out_prefix
             self._target_rule = target_rule
         else:

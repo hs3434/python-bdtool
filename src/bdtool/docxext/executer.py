@@ -6,6 +6,7 @@ from bdtool.docxext.math import add_math, parse_math
 if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, CharacterStyle
     from docx.document import Document
+    from docx.shared import Length
 
 
 class ClassTool:
@@ -46,9 +47,12 @@ class Executer(ClassTool):
                 if task.get("color", None) is not None:
                     run.font.color.rgb = RGBColor(*common_color_rgb(task["color"]))
             elif task["type"] == "picture":
-                style = task.get("style", None)
                 path = task.get("path", "")
-                obj = doc.add_picture(path, style=style)
+                width = task.get("width", None)
+                height = task.get("height", None)
+                style = task.get("style", obj.style)
+                doc.add_picture(path, width=width, height=height)
+                obj = doc.add_paragraph(style=style)
             elif task["type"] == "math":
                 style = task.get("style", None)
                 text = task.get("text", "")
@@ -94,5 +98,17 @@ class Executer(ClassTool):
         self.tasks.append({
             "type": "math",
             "text": latex,
+            "style": style
+        })
+        
+    def add_picture(self, path: str,
+                    width: int | Length | None = None,
+                    height: int | Length | None = None,
+                    style: str | ParagraphStyle | None = None):
+        self.tasks.append({
+            "type": "picture",
+            "path": path,
+            "width": width,
+            "height": height,
             "style": style
         })

@@ -26,7 +26,7 @@ dependencies = [
   "snakemake>=8.13.0"
 ]
 [project.scripts]
-bdtool-touch = "bdtool.tool:touch"
+bdtool = "bdtool.tool:cli"
 [tool.hatch.build.targets.wheel]
 packages = ["src/bdtool"]
 artifacts = ["src/bdtool/*"]
