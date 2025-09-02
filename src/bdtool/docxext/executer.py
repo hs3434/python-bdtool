@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from docx.shared import RGBColor
 from bdtool.tool import common_color_rgb
 from bdtool.docxext.math import add_math, parse_math
+from bdtool.docxext.endnote import add_endnote
 if TYPE_CHECKING:
     from docx.styles.style import ParagraphStyle, CharacterStyle
     from docx.document import Document
@@ -58,6 +59,10 @@ class Executer(ClassTool):
                 text = task.get("text", "")
                 obj = doc.add_paragraph(style=style)
                 add_math(obj._element, text)
+            elif task["type"] == "endnote":
+                text = task.get("text", "")
+                index = task.get("index", "1")
+                add_endnote(obj._element, text, index)
             else:
                 raise NotImplementedError("no type named {}".format(task["type"]))
 
@@ -99,6 +104,13 @@ class Executer(ClassTool):
             "type": "math",
             "text": latex,
             "style": style
+        })
+        
+    def add_endnote(self, instrText: str, index: int | None = None):
+        self.tasks.append({
+            "type": "endnote",
+            "text": instrText,
+            "index": index
         })
         
     def add_picture(self, path: str,
