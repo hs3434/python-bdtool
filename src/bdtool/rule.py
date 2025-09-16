@@ -366,8 +366,8 @@ class RuleSet(BaseRule):
     def target_rule(self):
         if self._target_rule is None:
             target_rule = MyRule()
-            if self.key is not None:
-                name = self.key + "_target"
+            if self.name is not None:
+                name = self.name + "_target"
             else:
                 name = str(self.out_prefix).replace(os.path.sep, "_")
                 name += "_target"
@@ -438,21 +438,19 @@ class RuleSet(BaseRule):
                 elif isinstance(rule, RuleSet):
                     rule.ext_script_path(script_path, True)
 
-    def ext_rule_name(self, suffix: str, recurse=True):
-        self.name = self.name + suffix
-        if recurse:
-            for rule in self.rule_sets:
-                if isinstance(rule, MyRule):
-                    rule.name = rule.name + suffix
-                elif isinstance(rule, RuleSet):
-                    rule.ext_rule_name(suffix, recurse=True)
+    def ext_sub_name(self, prefix: str = "", suffix: str = ""):
+        for rule in self.rule_sets:
+            if isinstance(rule, MyRule):
+                rule.name = prefix + rule.name + suffix
+            elif isinstance(rule, RuleSet):
+                rule.ext_sub_name(prefix, suffix)
 
     def append(self, obj, input_key: set=None):
         for pre in obj.pre_rule:
             if pre not in self.rule_sets:
                 raise ValueError(f"{str(obj)} need pre-rule {str(pre)}")
         if isinstance(obj, RuleSet) and obj.key is not None:
-            self.key_sets.update({obj.key: obj})
+            self.key_sets.update({obj.name: obj})
         index = len(self.rule_sets)
         if input_key is not None:
             self.input_map.update({index: input_key})
