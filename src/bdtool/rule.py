@@ -130,6 +130,36 @@ class BaseRule:
             return func(*args, **kwarg)
         return fun
 
+def ctreate_func(shellcmd):
+    def func(input,
+                output,
+                params,
+                wildcards,
+                threads,
+                resources,
+                log,
+                rule,
+                conda_env,
+                container_img,
+                singularity_args,
+                use_singularity,
+                env_modules,
+                bench_record,
+                jobid,
+                is_shell,
+                bench_iteration,
+                cleanup_scripts,
+                passed_shadow_dir,
+                edit_notebook,
+                conda_base_path,
+                basedir,
+                sourcecache_path,
+                runtime_sourcecache_path
+                ):
+        __is_snakemake_rule_func=True
+        shell(shellcmd(), bench_record=bench_record,
+                bench_iteration=bench_iteration)
+    return func
 
 class MyRule(BaseRule):
     def __init__(self):
@@ -223,34 +253,7 @@ class MyRule(BaseRule):
         return cmd
 
     def func(self):
-        def func(input,
-                 output,
-                 params,
-                 wildcards,
-                 threads,
-                 resources,
-                 log,
-                 rule,
-                 conda_env,
-                 container_img,
-                 singularity_args,
-                 use_singularity,
-                 env_modules,
-                 bench_record,
-                 jobid,
-                 is_shell,
-                 bench_iteration,
-                 cleanup_scripts,
-                 passed_shadow_dir,
-                 edit_notebook,
-                 conda_base_path,
-                 basedir,
-                 sourcecache_path,
-                 runtime_sourcecache_path,):
-            locals()[RULEFUNC_CONTEXT_MARKER] = True
-            shell(self.shellcmd(), bench_record=bench_record,
-                  bench_iteration=bench_iteration)
-        return func
+        return ctreate_func(self.shellcmd)
 
     def input(self):
         _input = self._input
