@@ -3,6 +3,7 @@ from pathlib import Path
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.shell import shell
 from snakemake.workflow import Workflow
+from snakemake.common import RULEFUNC_CONTEXT_MARKER
 import yaml
 import inspect
 import ast
@@ -246,6 +247,7 @@ class MyRule(BaseRule):
                  basedir,
                  sourcecache_path,
                  runtime_sourcecache_path,):
+            locals()[RULEFUNC_CONTEXT_MARKER] = True
             shell(self.shellcmd(), bench_record=bench_record,
                   bench_iteration=bench_iteration)
         return func
