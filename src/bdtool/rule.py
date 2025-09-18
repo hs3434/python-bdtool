@@ -240,7 +240,7 @@ class MyRule(BaseRule):
             if self.script_path is None:
                 script = self.script
             else:
-                script = Path(self.script_path, self.script)
+                script = Path(self.try_call(self.script_path), self.script)
             if cmd:
                 cmd = f"{script} {cmd}"
             else:
@@ -379,8 +379,10 @@ class RuleSet(BaseRule):
             target_rule.name = name
             target_rule._input = self.all_out
             target_rule._output = [name + ".done"]
-            target_rule.command = "bdtool touch {output}"
+            target_rule.script = Path("tools", "cli.py")
+            target_rule.args = ["touch", "{output}"]
             target_rule.out_prefix = self.out_prefix
+            target_rule.script_path = BaseRule.create_call(lambda : self.script_path)
             self._target_rule = target_rule
         else:
             target_rule = self._target_rule
